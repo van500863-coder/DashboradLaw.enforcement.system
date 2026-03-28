@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ប្រព័ន្ធគ្រប់គ្រងការសុំច្បាប់កម្រិតខ្ពស់</title>
+    <link rel="icon" type="logo" href="./logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700&family=Moul&display=swap" rel="stylesheet">
+    
+    <style>
+        /* រចនាបថទូទៅ */
+        body { font-family: 'Kantumruy Pro', sans-serif; background-color: #f4f7fe; color: #2b3674; }
+        
+        /* ផ្ទាំងកញ្ចក់ថ្លា (Glassmorphism) */
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.6); 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); 
+        }
+        
+        /* រចនាបថប៊ូតុង Tabs */
+        .tab-btn { position: relative; transition: all 0.3s ease; }
+        .tab-active { color: #4318ff; font-weight: 700; background: #f4f7fe; border-radius: 12px; }
+        .tab-inactive { color: #a3aed1; font-weight: 500; }
+        .tab-inactive:hover { color: #4318ff; background: rgba(244, 247, 254, 0.5); border-radius: 12px; }
+        
+        /* របារអូស (Scrollbar) ទំនើប */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* ចលនាលោតចេញ (Animations) */
+        .fade-in-row { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* ចលនា Loading */
+        .premium-loader { width: 50px; height: 50px; border: 5px solid #e2e8f0; border-top-color: #4318ff; border-radius: 50%; animation: spin 1s infinite linear; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ========================================================= */
+        /* ការកំណត់ដ៏សំខាន់សម្រាប់មុខងារទាញយក PDF (Native Print)  */
+        /* ========================================================= */
+        @media print {
+            /* លាក់អ្វីៗទាំងអស់នៅលើវិបសាយ */
+            body * { visibility: hidden; }
+            
+            /* បង្ហាញតែផ្ទាំងដែលត្រូវ Print ប៉ុណ្ណោះ */
+            #print-area, #print-area * { visibility: visible; }
+            
+            /* កំណត់ទីតាំងផ្ទាំង Print ឱ្យនៅចំកណ្តាលពេញអេក្រង់ */
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; }
+            
+            /* កំណត់ទំហំក្រដាស A4 Landscape និង Margin */
+            @page { size: landscape; margin: 10mm; }
+            
+            /* ការពារកុំឱ្យដាច់តារាង និងក្បាលតារាង */
+            table { page-break-inside: auto; border-collapse: collapse; width: 100%; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-[1450px] mx-auto" id="main-content">
+        
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 glass-panel p-6 rounded-2xl">
+            <div class="flex items-center space-x-4 mb-4 md:mb-0">
+                <div class="bg-gradient-to-br from-[#868CFF] to-[#4318FF] p-4 rounded-xl text-white shadow-lg transform transition hover:scale-105">
+                    <i class="fa-solid fa-graduation-cap text-3xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#2b3674] to-[#4318ff]">ប្រព័ន្ធគ្រប់គ្រងការសុំច្បាប់</h1>
+                    <p class="text-sm text-gray-500 font-medium mt-1"><i class="fa-regular fa-clock"></i> <span id="currentDateDisplay"></span></p>
+                </div>
+            </div>
+            <div class="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+                <button onclick="switchTab('work')" id="tab-work" class="tab-btn px-6 py-3 text-md tab-active flex items-center gap-2">
+                    <i class="fa-solid fa-briefcase"></i> ម៉ោងការងារ
+                </button>
+                <button onclick="switchTab('home')" id="tab-home" class="tab-btn px-6 py-3 text-md tab-inactive flex items-center gap-2">
+                    <i class="fa-solid fa-house-user"></i> ទៅផ្ទះ
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <div class="glass-panel rounded-2xl p-6 flex items-center justify-between bg-white hover:shadow-xl transition-all hover:-translate-y-1">
+                    <div>
+                        <p class="text-sm text-gray-400 font-bold uppercase tracking-wider mb-1">សរុបរួម</p>
+                        <div class="flex items-baseline gap-2">
+                            <h3 class="text-4xl font-black text-[#2b3674]" id="totalRecords">0</h3>
+                            <span class="text-md text-gray-400 font-medium">នាក់</span>
+                        </div>
+                    </div>
+                    <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6 flex items-center justify-between bg-white hover:shadow-xl transition-all hover:-translate-y-1">
+                    <div>
+                        <p class="text-sm text-gray-400 font-bold uppercase tracking-wider mb-1">សិស្សប្រុស</p>
+                        <div class="flex items-baseline gap-2">
+                            <h3 class="text-4xl font-black text-[#2b3674]" id="totalMale">0</h3>
+                            <span class="text-md text-gray-400 font-medium">នាក់</span>
+                        </div>
+                    </div>
+                    <div class="w-14 h-14 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-person text-3xl"></i>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6 flex items-center justify-between bg-white hover:shadow-xl transition-all hover:-translate-y-1">
+                    <div>
+                        <p class="text-sm text-gray-400 font-bold uppercase tracking-wider mb-1">សិស្សស្រី</p>
+                        <div class="flex items-baseline gap-2">
+                            <h3 class="text-4xl font-black text-[#2b3674]" id="totalFemale">0</h3>
+                            <span class="text-md text-gray-400 font-medium">នាក់</span>
+                        </div>
+                    </div>
+                    <div class="w-14 h-14 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-person-dress text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-panel rounded-2xl p-5 shadow-sm bg-white flex flex-col">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-[#4318ff]"></i> ស្ថិតិតាមថ្នាក់រៀន
+                    </h3>
+                    <div class="relative flex-grow min-h-[200px]">
+                        <canvas id="classChart"></canvas>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-2xl p-5 shadow-sm bg-white flex flex-col">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-[#10b981]"></i> ស្ថិតិតាមតួនាទី
+                    </h3>
+                    <div class="relative flex-grow min-h-[200px]">
+                        <canvas id="roleChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-6 mb-8 relative z-10 bg-white">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <h2 class="text-xl font-bold flex items-center gap-3 text-[#2b3674]">
+                    <i class="fa-solid fa-sliders text-[#4318ff] bg-blue-50 p-2 rounded-lg"></i> ឧបករណ៍ចម្រោះទិន្នន័យ
+                </h2>
+                <div class="flex flex-wrap gap-3 w-full md:w-auto">
+                    <button onclick="resetToCurrentMonth()" class="flex-1 md:flex-none text-sm bg-white hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-xl transition-all font-semibold border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calendar-day text-blue-500"></i> ខែនេះ
+                    </button>
+                    <button onclick="exportToCSV()" class="flex-1 md:flex-none text-sm bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl transition-all font-semibold shadow-md flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> ទាញយក Excel
+                    </button>
+                    <button onclick="exportToPDF()" id="pdfBtn" class="flex-1 md:flex-none text-sm bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-5 py-2.5 rounded-xl transition-all font-semibold shadow-md flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-pdf"></i> របាយការណ៍ PDF
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-5">
+                <div class="col-span-1">
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">ស្វែងរកឈ្មោះ</label>
+                    <div class="relative group">
+                        <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400 group-focus-within:text-[#4318ff] transition-colors"></i>
+                        <input type="text" id="searchInput" placeholder="វាយឈ្មោះនៅទីនេះ..." class="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#4318ff] outline-none transition-all text-sm shadow-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">ថ្នាក់រៀន</label>
+                    <select id="filterClass" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#4318ff] outline-none transition-all text-sm shadow-sm cursor-pointer">
+                        <option value="">ទាំងអស់</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">តួនាទី</label>
+                    <select id="filterRole" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#4318ff] outline-none transition-all text-sm shadow-sm cursor-pointer">
+                        <option value="">ទាំងអស់</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">ចាប់ពីថ្ងៃទី</label>
+                    <input type="date" id="startDate" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#4318ff] outline-none transition-all text-sm shadow-sm text-gray-600 cursor-pointer">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">ដល់ថ្ងៃទី</label>
+                    <input type="date" id="endDate" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#4318ff] outline-none transition-all text-sm shadow-sm text-gray-600 cursor-pointer">
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="hidden py-20 text-center glass-panel rounded-2xl mb-8">
+            <div class="premium-loader mb-6"></div>
+            <p class="text-[#4318ff] font-bold text-lg animate-pulse">កំពុងទាញយកទិន្នន័យពី Server...</p>
+        </div>
+
+        <div class="glass-panel rounded-2xl overflow-hidden shadow-sm border border-gray-100 mb-4 bg-white">
+            <div class="w-full overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50/80" id="tableHeader">
+                        </thead>
+                    <tbody class="bg-white divide-y divide-gray-100" id="tableBody">
+                        </tbody>
+                </table>
+            </div>
+            
+            <div class="bg-white px-6 py-4 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="text-sm font-medium text-gray-500 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                    កំពុងបង្ហាញ <span class="font-bold text-[#4318ff]" id="pageInfo">0-0</span> នៃ <span class="font-bold text-gray-800" id="pageTotal">0</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="prevPage()" class="px-5 py-2 border border-gray-200 rounded-xl bg-white text-gray-600 hover:bg-gray-50 hover:text-[#4318ff] font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50">
+                        <i class="fa-solid fa-arrow-left text-sm"></i> ថយក្រោយ
+                    </button>
+                    <button onclick="nextPage()" class="px-5 py-2 border border-gray-200 rounded-xl bg-white text-gray-600 hover:bg-gray-50 hover:text-[#4318ff] font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50">
+                        បន្ទាប់ <i class="fa-solid fa-arrow-right text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="noData" class="hidden text-center py-20 glass-panel rounded-2xl mt-4 border border-dashed border-gray-300">
+            <div class="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-regular fa-folder-open text-4xl text-gray-400"></i>
+            </div>
+            <p class="text-gray-500 font-bold text-xl">រកមិនឃើញទិន្នន័យដែលអ្នកកំពុងស្វែងរកទេ!</p>
+            <p class="text-gray-400 text-sm mt-2">សូមសាកល្បងផ្លាស់ប្តូរថ្ងៃខែ ឬលុបឈ្មោះចេញ</p>
+        </div>
+    </div>
+
+    <script>
+        // ការកំណត់ Google Sheet ID របស់អ្នក
+        const SHEET_ID = '1YbkEkYVBSNpJfzIHLP9dTQA6s6N_9L8lAY-Spua23B0';
+        
+        // អថេរសម្រាប់ផ្ទុកទិន្នន័យ
+        let currentTab = 'work';
+        let cachedData = { work: [], home: [] };
+        let filteredData = [];
+        
+        // ការកំណត់ Pagination
+        let currentPage = 1;
+        const rowsPerPage = 20;
+
+        // កំណត់ក្បាលតារាង (Headers)
+        const baseHeadersWork = ['ឈ្មោះ', 'ភេទ', 'តួនាទី', 'ថ្នាក់រៀន', 'ចំនួនថ្ងៃសុំ', 'កាលបរិច្ឆេទ', 'រយៈពេលសុំ', 'មូលហេតុ', 'តេឡេក្រាម'];
+        const baseHeadersHome = ['ឈ្មោះ', 'ភេទ', 'តួនាទី', 'ថ្នាក់រៀន', 'ចំនួនថ្ងៃសុំ', 'ថ្ងៃចេញ', 'ថ្ងៃចូល', 'ចំនួនសរុប', 'មូលហេតុ', 'ស្ថានភាព'];
+
+        // អថេរសម្រាប់ Chart
+        let classChartInstance = null;
+        let roleChartInstance = null;
+
+        // ដំណើរការពេលបើកវិបសាយដំបូង
+        window.onload = () => {
+            // បង្ហាញកាលបរិច្ឆេទថ្ងៃនេះ
+            const today = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDateDisplay').innerText = "ថ្ងៃនេះ: " + today.toLocaleDateString('km-KH', options);
+            
+            // កំណត់ទិន្នន័យបង្ហាញត្រឹមខែបច្ចុប្បន្នជា Default
+            resetToCurrentMonth();
+            switchTab('work');
+            
+            // ចាប់យកព្រឹត្តិការណ៍ពេលវាយបញ្ចូល និងប្តូរជម្រើសចម្រោះ (Real-time Filter)
+            document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; applyFilters(); });
+            document.getElementById('startDate').addEventListener('change', () => { currentPage = 1; applyFilters(); });
+            document.getElementById('endDate').addEventListener('change', () => { currentPage = 1; applyFilters(); });
+            document.getElementById('filterClass').addEventListener('change', () => { currentPage = 1; applyFilters(); });
+            document.getElementById('filterRole').addEventListener('change', () => { currentPage = 1; applyFilters(); });
+        };
+
+        // មុខងារសម្រាប់កំណត់ថ្ងៃខែបច្ចុប្បន្ន
+        function resetToCurrentMonth() {
+            const date = new Date();
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            
+            // កែសម្រួលបញ្ហា Timezone
+            firstDay.setMinutes(firstDay.getMinutes() - firstDay.getTimezoneOffset());
+            lastDay.setMinutes(lastDay.getMinutes() - lastDay.getTimezoneOffset());
+
+            document.getElementById('startDate').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('endDate').value = lastDay.toISOString().split('T')[0];
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterClass').value = '';
+            document.getElementById('filterRole').value = '';
+            
+            currentPage = 1;
+            if(cachedData[currentTab].length > 0) applyFilters();
+        }
+
+        // មុខងារឆ្លាស់ Tab
+        function switchTab(tab) {
+            currentTab = tab;
+            currentPage = 1;
+            
+            // ផ្លាស់ប្តូរពណ៌ Tab ដែលសកម្ម
+            document.getElementById('tab-work').className = tab === 'work' ? 'tab-btn px-6 py-3 text-md tab-active flex items-center gap-2 shadow-sm' : 'tab-btn px-6 py-3 text-md tab-inactive flex items-center gap-2';
+            document.getElementById('tab-home').className = tab === 'home' ? 'tab-btn px-6 py-3 text-md tab-active flex items-center gap-2 shadow-sm' : 'tab-btn px-6 py-3 text-md tab-inactive flex items-center gap-2';
+            
+            renderHeader();
+            loadData();
+        }
+
+        // មុខងារបង្ហាញក្បាលតារាង
+        function renderHeader() {
+            const tr = document.createElement('tr');
+            const currentHeaders = currentTab === 'work' ? baseHeadersWork : baseHeadersHome;
+            
+            currentHeaders.forEach(text => {
+                const th = document.createElement('th');
+                th.className = 'px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap border-b border-gray-200';
+                th.innerText = text;
+                tr.appendChild(th);
+            });
+
+            // បន្ថែមជួរ "សកម្មភាព" នៅចុងគេ
+            const thAction = document.createElement('th');
+            thAction.className = 'px-4 py-4 text-center text-xs font-bold text-[#4318ff] uppercase tracking-wider whitespace-nowrap border-b border-gray-200 sticky right-0 bg-gray-50/90 backdrop-blur-sm z-10';
+            thAction.innerText = 'សកម្មភាព';
+            tr.appendChild(thAction);
+
+            document.getElementById('tableHeader').innerHTML = '';
+            document.getElementById('tableHeader').appendChild(tr);
+        }
+
+        // មុខងារទាញយកទិន្នន័យពី Google Sheets
+        function loadData() {
+            if (cachedData[currentTab].length > 0) {
+                populateDropdowns();
+                applyFilters();
+                return;
+            }
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('tableBody').innerHTML = '';
+            document.getElementById('noData').classList.add('hidden');
+
+            const sheetName = currentTab === 'work' ? 'ច្បាប់ម៉ោងការងារ' : 'ច្បាប់ទៅផ្ទះ';
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+
+            Papa.parse(csvUrl, {
+                download: true,
+                header: false,
+                complete: function(results) {
+                    const rows = results.data.slice(7); // កាត់យកតែទិន្នន័យចាប់ពី Row ទី 8 មក
+                    
+                    let formattedData = rows.map((row, i) => {
+                        let dataObj = { id: i }; 
+                        if(currentTab === 'work') {
+                            Object.assign(dataObj, {
+                                name: row[1] || '', gender: row[2] || '', role: row[3] || '', class: row[5] || '',
+                                daysReq: row[10] || '', date: row[11] || '', duration: row[15] || '',
+                                reason: row[9] || '', telegram: row[8] || ''
+                            });
+                        } else {
+                            Object.assign(dataObj, {
+                                name: row[1] || '', gender: row[2] || '', role: row[3] || '', class: row[5] || '',
+                                daysReq: row[10] || '', dateOut: row[11] || '', dateIn: row[15] || '', total: row[13] || '',
+                                reason: row[9] || '', status: row[18] || '', date: row[11] || '' 
+                            });
+                        }
+                        return dataObj;
+                    }).filter(row => row.name.trim() !== "");
+
+                    cachedData[currentTab] = formattedData;
+                    populateDropdowns();
+                    document.getElementById('loading').classList.add('hidden');
+                    applyFilters();
+                },
+                error: function() {
+                    document.getElementById('loading').classList.add('hidden');
+                    Swal.fire({
+                        icon: 'error', title: 'បរាជ័យ', text: 'មិនអាចទាញទិន្នន័យបានទេ។ សូមពិនិត្យសិទ្ធិ Google Sheet!', confirmButtonColor: '#4318ff'
+                    });
+                }
+            });
+        }
+
+        // មុខងារទាញយកជម្រើស (Options) សម្រាប់ Dropdown
+        function populateDropdowns() {
+            const classes = new Set();
+            const roles = new Set();
+            
+            cachedData[currentTab].forEach(row => {
+                if(row.class) classes.add(row.class);
+                if(row.role) roles.add(row.role);
+            });
+
+            const classSelect = document.getElementById('filterClass');
+            const roleSelect = document.getElementById('filterRole');
+            
+            classSelect.innerHTML = '<option value="">ទាំងអស់</option>';
+            roleSelect.innerHTML = '<option value="">ទាំងអស់</option>';
+
+            [...classes].sort().forEach(c => classSelect.add(new Option(c, c)));
+            [...roles].sort().forEach(r => roleSelect.add(new Option(r, r)));
+        }
+
+        // មុខងារបម្លែងកាលបរិច្ឆេទ
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            let d = new Date(dateStr);
+            if(isNaN(d.getTime())) return null;
+            return d;
+        }
+
+        // មុខងារចម្រោះទិន្នន័យ
+        function applyFilters() {
+            const searchValue = document.getElementById('searchInput').value.toLowerCase();
+            const classFilter = document.getElementById('filterClass').value;
+            const roleFilter = document.getElementById('filterRole').value;
+            const startDateVal = document.getElementById('startDate').value;
+            const endDateVal = document.getElementById('endDate').value;
+            
+            let start = startDateVal ? new Date(startDateVal) : null;
+            let end = endDateVal ? new Date(endDateVal) : null;
+            if(end) end.setHours(23, 59, 59);
+
+            filteredData = cachedData[currentTab].filter(row => {
+                const matchName = row.name.toLowerCase().includes(searchValue);
+                const matchClass = classFilter === "" || row.class === classFilter;
+                const matchRole = roleFilter === "" || row.role === roleFilter;
+                
+                let matchDate = true;
+                const rowDate = parseDate(row.date || row.dateOut); 
+                if (start && rowDate && rowDate < start) matchDate = false;
+                if (end && rowDate && rowDate > end) matchDate = false;
+
+                return matchName && matchClass && matchRole && matchDate;
+            });
+
+            // អាប់ដេតតួលេខសង្ខេប
+            document.getElementById('totalRecords').innerText = filteredData.length;
+            document.getElementById('totalMale').innerText = filteredData.filter(r => r.gender.trim() === 'ប្រុស' || r.gender.trim() === 'M').length;
+            document.getElementById('totalFemale').innerText = filteredData.filter(r => r.gender.trim() === 'ស្រី' || r.gender.trim() === 'F').length;
+
+            updateDashboardCharts();
+            renderTable();
+        }
+
+        // មុខងារអាប់ដេតក្រាហ្វិក
+        function updateDashboardCharts() {
+            const classCounts = {};
+            const roleCounts = {};
+
+            filteredData.forEach(row => {
+                const c = row.class || 'ផ្សេងៗ';
+                const r = row.role || 'ផ្សេងៗ';
+                classCounts[c] = (classCounts[c] || 0) + 1;
+                roleCounts[r] = (roleCounts[r] || 0) + 1;
+            });
+
+            Chart.defaults.font.family = "'Kantumruy Pro', sans-serif";
+
+            // បង្កើត Class Chart
+            if (classChartInstance) classChartInstance.destroy();
+            const ctxClass = document.getElementById('classChart').getContext('2d');
+            classChartInstance = new Chart(ctxClass, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(classCounts),
+                    datasets: [{
+                        data: Object.values(classCounts),
+                        backgroundColor: ['#4318ff', '#39b8ff', '#ff39a4', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } }, cutout: '65%' }
+            });
+
+            // បង្កើត Role Chart
+            if (roleChartInstance) roleChartInstance.destroy();
+            const ctxRole = document.getElementById('roleChart').getContext('2d');
+            roleChartInstance = new Chart(ctxRole, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(roleCounts),
+                    datasets: [{
+                        label: 'ចំនួនសិស្សសុំច្បាប់',
+                        data: Object.values(roleCounts),
+                        backgroundColor: '#10b981',
+                        borderRadius: 6,
+                        barThickness: 25
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }
+                }
+            });
+        }
+
+        // មុខងារបង្ហាញតារាង
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                document.getElementById('noData').classList.remove('hidden');
+                document.getElementById('pageInfo').innerText = "0-0";
+                document.getElementById('pageTotal').innerText = "0";
+            } else {
+                document.getElementById('noData').classList.add('hidden');
+                
+                // ការគណនា Pagination
+                const startIndex = (currentPage - 1) * rowsPerPage;
+                const endIndex = startIndex + rowsPerPage;
+                const paginatedData = filteredData.slice(startIndex, endIndex);
+
+                document.getElementById('pageInfo').innerText = `${startIndex + 1}-${Math.min(endIndex, filteredData.length)}`;
+                document.getElementById('pageTotal').innerText = filteredData.length;
+
+                paginatedData.forEach((row) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-[#f4f7fe]/50 transition-colors duration-200 fade-in-row group';
+                    
+                    let cells = [];
+                    const formatBadge = (text, bg, textColor) => `<span class="px-3 py-1 inline-flex text-xs font-bold rounded-lg bg-${bg} text-${textColor} border border-${bg}">${text}</span>`;
+                    
+                    // ធ្វើអោយអត្ថបទមូលហេតុធ្លាក់បន្ទាត់ស្វ័យប្រវត្តិ
+                    const reasonHtml = `<div class="min-w-[150px] max-w-[250px] text-gray-600 whitespace-normal break-words leading-relaxed">${row.reason}</div>`;
+
+                    if (currentTab === 'work') {
+                        let telegramHtml = '-';
+                        if (row.telegram && row.telegram.trim() !== '') {
+                            let link = row.telegram.trim();
+                            if(!link.startsWith('http')) link = 'https://' + link;
+                            telegramHtml = `<a href="${link}" target="_blank" class="text-[#4318ff] hover:text-indigo-800 font-bold flex items-center gap-1 transition-transform hover:scale-105"><i class="fa-brands fa-telegram text-xl"></i> Link</a>`;
+                        }
+
+                        cells = [
+                            `<div class="font-bold text-[#2b3674] whitespace-nowrap flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">${row.name.charAt(0)}</div> ${row.name}</div>`,
+                            `<span class="whitespace-nowrap font-medium text-gray-600">${row.gender}</span>`,
+                            formatBadge(row.role, 'indigo-100', 'indigo-700'),
+                            `<span class="whitespace-nowrap font-bold text-gray-700">${row.class}</span>`, 
+                            `<span class="whitespace-nowrap font-bold bg-gray-100 px-2 py-1 rounded-md">${row.daysReq}</span>`, 
+                            `<span class="whitespace-nowrap text-gray-500 font-medium"><i class="fa-regular fa-calendar text-gray-400"></i> ${row.date}</span>`, 
+                            `<span class="whitespace-nowrap font-medium">${row.duration}</span>`, 
+                            reasonHtml,
+                            telegramHtml
+                        ];
+                    } else {
+                        let statusHtml = row.status;
+                        if(row.status === 'អនុម័ត' || row.status === 'Approved') statusHtml = formatBadge(row.status, 'emerald-100', 'emerald-700');
+                        else if(row.status === 'រង់ចាំ' || row.status === 'Pending') statusHtml = formatBadge(row.status, 'amber-100', 'amber-700');
+                        else if(row.status) statusHtml = formatBadge(row.status, 'gray-100', 'gray-700');
+
+                        cells = [
+                            `<div class="font-bold text-[#2b3674] whitespace-nowrap flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">${row.name.charAt(0)}</div> ${row.name}</div>`,
+                            `<span class="whitespace-nowrap font-medium text-gray-600">${row.gender}</span>`,
+                            formatBadge(row.role, 'indigo-100', 'indigo-700'),
+                            `<span class="whitespace-nowrap font-bold text-gray-700">${row.class}</span>`, 
+                            `<span class="whitespace-nowrap font-bold bg-gray-100 px-2 py-1 rounded-md">${row.daysReq}</span>`, 
+                            `<span class="whitespace-nowrap text-gray-500 font-medium">${row.dateOut}</span>`, 
+                            `<span class="whitespace-nowrap text-gray-500 font-medium">${row.dateIn}</span>`, 
+                            `<span class="whitespace-nowrap font-bold text-red-500">${row.total}</span>`, 
+                            reasonHtml, 
+                            statusHtml
+                        ];
+                    }
+
+                    cells.forEach((val) => {
+                        const td = document.createElement('td');
+                        td.className = 'px-4 py-3 text-sm border-b border-gray-100 align-middle'; 
+                        td.innerHTML = val || '-';
+                        tr.appendChild(td);
+                    });
+
+                    // Action Button (ប៊ូតុងមើលលម្អិត)
+                    const tdAction = document.createElement('td');
+                    tdAction.className = 'px-4 py-3 text-center border-b border-gray-100 sticky right-0 bg-white group-hover:bg-[#f4f7fe] transition-colors align-middle';
+                    tdAction.innerHTML = `<button onclick="viewDetails(${row.id})" class="w-8 h-8 rounded-full bg-blue-50 text-[#4318ff] hover:bg-[#4318ff] hover:text-white transition-all shadow-sm"><i class="fa-solid fa-eye"></i></button>`;
+                    tr.appendChild(tdAction);
+                    
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        // មុខងារបង្ហាញផ្ទាំងលម្អិត
+        function viewDetails(id) {
+            const row = cachedData[currentTab].find(r => r.id === id);
+            if(!row) return;
+
+            let detailsHtml = `<div class="text-left font-['Kantumruy_Pro'] text-sm space-y-3 mt-4">`;
+            const labelClass = "text-gray-400 font-bold uppercase text-xs";
+            const valueClass = "text-gray-800 font-semibold text-base mb-2 border-b border-gray-100 pb-2";
+
+            const addField = (label, value) => {
+                detailsHtml += `<div><p class="${labelClass}">${label}</p><p class="${valueClass}">${value || '-'}</p></div>`;
+            };
+
+            if(currentTab === 'work') {
+                addField('ឈ្មោះសិស្ស', row.name);
+                addField('ភេទ & តួនាទី', `${row.gender} | ${row.role}`);
+                addField('ថ្នាក់រៀន', row.class);
+                addField('កាលបរិច្ឆេទសុំ', row.date);
+                addField('ចំនួនថ្ងៃសុំ', row.daysReq);
+                addField('រយៈពេល', row.duration);
+                addField('មូលហេតុ', row.reason);
+            } else {
+                addField('ឈ្មោះសិស្ស', row.name);
+                addField('ភេទ & តួនាទី', `${row.gender} | ${row.role}`);
+                addField('ថ្នាក់រៀន', row.class);
+                addField('ថ្ងៃចេញ - ថ្ងៃចូល', `${row.dateOut} ដល់ ${row.dateIn}`);
+                addField('ចំនួនសរុប', row.total + ' ថ្ងៃ');
+                addField('មូលហេតុ', row.reason);
+                addField('ស្ថានភាព', row.status);
+            }
+            detailsHtml += `</div>`;
+
+            Swal.fire({
+                title: `<span class="font-['Kantumruy_Pro'] text-[#2b3674]"><i class="fa-solid fa-address-card text-[#4318ff] mr-2"></i>ព័ត៌មានលម្អិត</span>`,
+                html: detailsHtml,
+                confirmButtonText: 'បិទ',
+                confirmButtonColor: '#4318ff',
+                customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100' },
+                showClass: { popup: 'animate__animated animate__zoomIn animate__faster' },
+                hideClass: { popup: 'animate__animated animate__zoomOut animate__faster' }
+            });
+        }
+
+        // មុខងារចុចទៅទំព័របន្ទាប់
+        function nextPage() {
+            if ((currentPage * rowsPerPage) < filteredData.length) {
+                currentPage++;
+                renderTable();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        }
+
+        // មុខងារទាញយក Excel (CSV)
+        function exportToCSV() {
+            if(filteredData.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'ទទេ', text: 'គ្មានទិន្នន័យសម្រាប់ទាញយកទេ!', confirmButtonColor: '#4318ff' });
+                return;
+            }
+            
+            let exportArr = [];
+            const h = currentTab === 'work' ? baseHeadersWork : baseHeadersHome;
+            exportArr.push(h); 
+            
+            filteredData.forEach(row => {
+                if(currentTab === 'work') exportArr.push([row.name, row.gender, row.role, row.class, row.daysReq, row.date, row.duration, row.reason, row.telegram]);
+                else exportArr.push([row.name, row.gender, row.role, row.class, row.daysReq, row.dateOut, row.dateIn, row.total, row.reason, row.status]);
+            });
+
+            const csv = Papa.unparse(exportArr);
+            const blob = new Blob(["\uFEFF"+csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `ទិន្នន័យសុំច្បាប់_${currentTab}_${new Date().toLocaleDateString('en-GB').replace(/\//g,'-')}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            Swal.fire({
+                icon: 'success', title: 'ជោគជ័យ', text: 'ទាញយកឯកសារ Excel រួចរាល់!',
+                timer: 2000, showConfirmButton: false
+            });
+        }
+
+        // =========================================================================================
+        // ដំណោះស្រាយចុងក្រោយបង្អស់ (Ultimate Fix): បោះបង់ html2canvas ប្រើ NATIVE BROWSER PRINT វិញ
+        // =========================================================================================
+        function exportToPDF() {
+            if(filteredData.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'ទទេ', text: 'គ្មានទិន្នន័យសម្រាប់ទាញយក PDF ទេ!', confirmButtonColor: '#4318ff' });
+                return;
+            }
+
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const reportTitle = currentTab === 'work' ? 'របាយការណ៍សុំច្បាប់ម៉ោងការងារ' : 'របាយការណ៍សុំច្បាប់ទៅផ្ទះ';
+            const total = filteredData.length;
+            const male = filteredData.filter(r => r.gender.trim() === 'ប្រុស' || r.gender.trim() === 'M').length;
+            const female = filteredData.filter(r => r.gender.trim() === 'ស្រី' || r.gender.trim() === 'F').length;
+
+            // បង្កើត HTML សម្រាប់ Print (រចនាបថនេះត្រូវបានការពារដោយ @media print ខាងលើ)
+            let htmlContent = `
+                <div id="print-area" style="font-family: 'Kantumruy Pro', 'Moul', sans-serif; color: #000; width: 100%; background: #fff; padding: 20px; box-sizing: border-box;">
+                    
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h2 style="font-family: 'Moul', serif; font-size: 24px; margin: 0; line-height: 1.5; color: #000;">ព្រះរាជាណាចក្រកម្ពុជា</h2>
+                        <h3 style="font-family: 'Moul', serif; font-size: 18px; margin: 5px 0 0 0; line-height: 1.5; color: #000;">ជាតិ សាសនា ព្រះមហាក្សត្រ</h3>
+                        <div style="font-size: 20px; margin-top: -5px; color: #000;">&#10086;</div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <h2 style="font-family: 'Moul', serif; font-size: 18px; margin-bottom: 8px; color: #000; font-weight: bold;">${reportTitle}</h2>
+                        <p style="font-size: 14px; margin: 4px 0; color: #000;">កាលបរិច្ឆេទចាប់ពី: ${startDate || 'ដើមខែ'} ដល់: ${endDate || 'ចុងខែ'}</p>
+                        <p style="font-size: 14px; margin: 4px 0; font-weight: 600; color: #000;">សិស្សសុំច្បាប់សរុប: ${total} នាក់ (ប្រុស: ${male} នាក់, ស្រី: ${female} នាក់)</p>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 12px; margin-top: 10px;">
+                        <thead style="display: table-header-group;">
+                            <tr style="background-color: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+            `;
+
+            // បញ្ចូលក្បាលតារាង (ដក 'តេឡេក្រាម' ចេញ)
+            let pdfHeaders = currentTab === 'work' ? baseHeadersWork.slice(0, -1) : baseHeadersHome;
+            pdfHeaders.forEach(header => {
+                htmlContent += `<th style="padding: 8px; border: 1px solid #000; text-align: left; font-weight: bold; color: #000;">${header}</th>`;
+            });
+            htmlContent += `</tr></thead><tbody>`;
+
+            // បញ្ចូលទិន្នន័យក្នុងតារាង
+            filteredData.forEach(row => {
+                htmlContent += `<tr style="page-break-inside: avoid;">`;
+                let fields = currentTab === 'work'
+                    ? [row.name, row.gender, row.role, row.class, row.daysReq, row.date, row.duration, row.reason]
+                    : [row.name, row.gender, row.role, row.class, row.daysReq, row.dateOut, row.dateIn, row.total, row.reason, row.status];
+
+                fields.forEach(f => {
+                    htmlContent += `<td style="padding: 6px; border: 1px solid #000; word-break: break-word; line-height: 1.5; color: #000; vertical-align: top;">${f || ''}</td>`;
+                });
+                htmlContent += `</tr>`;
+            });
+
+            // កន្លែងចុះហត្ថលេខា (ប្រើប្រាស់តារាងការពារការដាច់ទំព័រ)
+            htmlContent += `</tbody></table>
+                    <table style="width: 100%; margin-top: 40px; font-size: 14px; color: #000; border: none; page-break-inside: avoid;">
+                        <tr style="border: none;">
+                            <td style="width: 50%; text-align: center; border: none; vertical-align: top; padding-top: 10px;">
+                                <p style="margin: 0; font-weight: bold;">បានឃើញ និងឯកភាព</p>
+                                <br><br><br><br>
+                                <p style="margin: 0;">.......................................</p>
+                            </td>
+                            <td style="width: 50%; text-align: center; border: none; vertical-align: top;">
+                                <p style="margin: 0; white-space: nowrap;">ធ្វើនៅ....................ថ្ងៃទី........ខែ........ឆ្នាំ..........</p>
+                                <p style="margin: 5px 0 0 0; font-weight: bold;">អ្នករៀបចំរបាយការណ៍</p>
+                                <br><br><br>
+                                <p style="margin: 0;">.......................................</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>`;
+
+            // បង្កើត Container បញ្ចូលទៅក្នុង Web (វានឹងលាក់មាតិកាផ្សេងៗចេញសិនដោយស្វ័យប្រវត្តិ ដោយសារកូដ @media print ខាងលើ)
+            const printDiv = document.createElement('div');
+            printDiv.innerHTML = htmlContent;
+            document.body.appendChild(printDiv);
+
+            // ហៅមុខងារ Print របស់ Browser ដោយផ្ទាល់
+            // (អ្នកគ្រាន់តែជ្រើសរើស "Save as PDF" នៅលើផ្ទាំងលោត)
+            window.print();
+
+            // លុបផ្ទាំង Print ចេញវិញបន្ទាប់ពី Print រួច (Delay បន្តិចដើម្បីឲ្យ Dialog លោតចប់សិន)
+            setTimeout(() => {
+                document.body.removeChild(printDiv);
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
